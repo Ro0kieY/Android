@@ -20,14 +20,14 @@ public boolean dispatchTouchEvent(MotionEvent ev) {
 }    
 ```
 
-首先对`Action_DOWN` 事件进行了特殊判断，调用`onUserInteraction()` ,跟进这个方法，会发现是一个空方法：
+首先对`ACTION_DOWN` 事件进行了特殊判断，调用`onUserInteraction()` ,跟进这个方法，会发现是一个空方法：
 
 ```java
 public void onUserInteraction() {
 }
 ```
 
-不去管它，接下来Activity会通过`getWindow()` 获得自己所属的`Window`  进行分发，`Window` 是个抽象类，用来控制顶级View的外观和行为策略，它的唯一实现类是`PhoneWindow` 。那么`PhoneWindow` 是如何处理点击事件的，`PhoneWindow#superDispatchTouchEvent()` 如下所示：
+不去管它，接下来`Activity`会通过`getWindow()` 获得自己所属的`Window`  进行分发，`Window` 是个抽象类，用来控制顶级`View`的外观和行为策略，它的唯一实现类是`PhoneWindow` 。那么`PhoneWindow` 是如何处理点击事件的，`PhoneWindow#superDispatchTouchEvent()` 如下所示：
 
 ```java
 @Override
@@ -51,7 +51,7 @@ public boolean superDispatchTouchEvent(MotionEvent event) {
 }
 ```
 
-居然是调用父类的`dispatchTouchEvent()` 方法，`DecorView` 的父类是`FrameLayout` ,继续跟进查看，发现`FrameLayout` 并没有这个方法，那就继续向上追，`FrameLayout` 的父类是`ViewGroup` ，也就是说，触摸事件经过层层传递，最终传递到`ViewGroup#dispatchTouchEvent()` 方法,至此，事件已经传递到视图的顶级View了。
+居然是调用父类的`dispatchTouchEvent()` 方法，`DecorView` 的父类是`FrameLayout` ,继续跟进查看，发现`FrameLayout` 并没有这个方法，那就继续向上追，`FrameLayout` 的父类是`ViewGroup` ，也就是说，触摸事件经过层层传递，最终传递到`ViewGroup#dispatchTouchEvent()` 方法,至此，事件已经传递到视图的顶级`View`了。
 
 ****
 
@@ -304,7 +304,7 @@ public boolean dispatchTouchEvent(MotionEvent ev) {
 
 `intercepted` 用来标记`ViewGroup` 是否拦截事件，当事件为`MotionEvent.ACTION_DOWN` 或者`mFirstTouchTarget!=null` 时，`if` 判断成立，然后判断`disallowIntercept` 标志位，当`disallowIntercept` 为`false`时，调用`onInterceptTouchEvent()` 方法，并将返回值赋值给`intercepted` ，否则当`disallowIntercept` 为`true`时，则直接将`intercepted` 赋值为`false` 。
 
-`disallowIntercept` 标记位可以通过公共方法 `requestDisallowInterceptTouchEvent()` 设置，通常由子`View`调用，当设置为`True` 后，`ViewGroup` 将无法拦截除`ACTION_DOWN` 之外的点击事件，原因是当事件为`ACTION_DOWN` 时，`ViewGroup` 会重置`disallowIntercept` 标记位，并且将`mFirstTouchTarget` 设置为`null`，因此，当事件为`ACTION_DOWN` 时，`ViewGroup` 总是会调用自己的`onInterceptTouchEvent()`方法。
+`disallowIntercept` 标记位可以通过公共方法 `requestDisallowInterceptTouchEvent()` 设置，通常由子`View`调用，当设置为`true` 后，`ViewGroup` 将无法拦截除`ACTION_DOWN` 之外的点击事件，原因是当事件为`ACTION_DOWN` 时，`ViewGroup` 会重置`disallowIntercept` 标记位，并且将`mFirstTouchTarget` 设置为`null`，因此，当事件为`ACTION_DOWN` 时，`ViewGroup` 总是会调用自己的`onInterceptTouchEvent()`方法。
 
 ```java
         if (actionMasked == MotionEvent.ACTION_DOWN) {
@@ -455,7 +455,7 @@ public boolean dispatchTouchEvent(MotionEvent ev) {
                     if (preorderedList != null) preorderedList.clear();
                 }
 ```
-当没有任何子`View`处理触摸事件时，调用`dispatchTransformedTouchEvent()` 方法，注意此时第三个参数传入`null`，在方法内部就会调用`super.dispatchTouchEvent()` ,也就是View类的`dispatchTouchEvent()` 。
+当没有任何子`View`处理触摸事件时，调用`dispatchTransformedTouchEvent()` 方法，注意此时第三个参数传入`null`，在方法内部就会调用`super.dispatchTouchEvent()` ,也就是`View`类的`dispatchTouchEvent()` 。
 
 ```java
 if (mFirstTouchTarget == null) {
@@ -574,15 +574,15 @@ private boolean dispatchTransformedTouchEvent(MotionEvent event, boolean cancel,
 
 #### 重要结论
 
-1. `ViewGroup`一旦拦截`Action_Down`事件，那么当`Action_Move`、`Action_Up`事件到来时，将不再调用`ViewGroup`的`onInterceptTouchEvent()`方法，并且同一序列中的其他事件都会默认交给它处理。
+1. `ViewGroup`一旦拦截`ACTION_DOWN`事件，那么当`ACTION_MOVE`、`ACTION_UP`事件到来时，将不再调用`ViewGroup`的`onInterceptTouchEvent()`方法，并且同一序列中的其他事件都会默认交给它处理。
 
-   分析：`ViewGroup`拦截`Action_Down`事件，会导致`intercepted`为`true`，从而导致`if (!canceled && !intercepted)`判断不成立，跳过执行语句，`mFirstTouchTarget`也为`null`。那么当`Action_Move`、`Action_Up`事件到来时，`if (actionMasked == MotionEvent.ACTION_DOWN  || mFirstTouchTarget != null)`判断语句不成立，会直接将`intercepted`赋值为`true`，即默认拦截后续的所有事件。
+   分析：`ViewGroup`拦截`ACTION_DOWN`事件，会导致`intercepted`为`true`，从而导致`if (!canceled && !intercepted)`判断不成立，跳过执行语句，`mFirstTouchTarget`也为`null`。那么当`ACTION_MOVE`、`ACTION_UP`事件到来时，`if (actionMasked == MotionEvent.ACTION_DOWN  || mFirstTouchTarget != null)`判断语句不成立，会直接将`intercepted`赋值为`true`，即默认拦截后续的所有事件。
 
-2. 某个`View`一旦开始处理事件，如果它不消费`Action_Down`事件，那么同一事件序列中的其他事件也不会再交给它来处理，并且事件将重新交给它的父容器去处理。
+2. 某个`View`一旦开始处理事件，如果它不消费`ACTION_DOWN`事件，那么同一事件序列中的其他事件也不会再交给它来处理，并且事件将重新交给它的父容器去处理。
 
-   分析：某个`View`不消费`Action_Down`事件，即`dispatchTransformedTouchEvent()`方法返回了`false`，导致`if (dispatchTransformedTouchEvent(ev, false, child, idBitsToAssign))`判断语句不成立，跳过执行语句，同样导致`mFirstTouchTarget`为`null` ，那么和第一条结论的分析一样，当`Action_Move`、`Action_Up`事件到来时，`if (actionMasked == MotionEvent.ACTION_DOWN  || mFirstTouchTarget != null)`判断语句不成立，同样会直接将`intercepted`赋值为`true` ，所以后续的事件都无法传递到这个`View`，而是交给`ViewGroup`处理。
+   分析：某个`View`不消费`ACTION_DOWN`事件，即`dispatchTransformedTouchEvent()`方法返回了`false`，导致`if (dispatchTransformedTouchEvent(ev, false, child, idBitsToAssign))`判断语句不成立，跳过执行语句，同样导致`mFirstTouchTarget`为`null` ，那么和第一条结论的分析一样，当`ACTION_MOVE`、`ACTION_UP`事件到来时，`if (actionMasked == MotionEvent.ACTION_DOWN  || mFirstTouchTarget != null)`判断语句不成立，同样会直接将`intercepted`赋值为`true` ，所以后续的事件都无法传递到这个`View`，而是交给`ViewGroup`处理。
 
-3. `ViewGroup`(绝大多数情况下)默认不拦截任何事件。`Android`源码中`ViewGroup`的`onInterceptTouchEvent()`方法默认返回false。
+3. `ViewGroup`(绝大多数情况下)默认不拦截任何事件。`Android`源码中`ViewGroup`的`onInterceptTouchEvent()`方法默认返回`false`。
 
 4. `ViewGroup`没有重写父类`View`的`onTouchEvent()`方法。
 
