@@ -4,7 +4,7 @@
 
 ****
 
-#### 1. Activity对事件的分发过程
+#### Activity对事件的分发过程
 
 从`Activity#dispatchTouchEvent()`开始看起:
 
@@ -55,7 +55,7 @@ public boolean superDispatchTouchEvent(MotionEvent event) {
 
 ****
 
-#### 2. ViewGroup对事件的分发过程
+#### ViewGroup对事件的分发过程
 
 接下来是重头戏了...上代码`ViewGroup#dispatchTouchEvent()` ...
 
@@ -67,7 +67,7 @@ public boolean dispatchTouchEvent(MotionEvent ev) {
     }
 
     // 辅助功能，有些用户由于视力上、身体上、年龄上使他们不能接受语音或者视觉信息
-    // 不是重点，也不去管它（其实是我不懂...）
+    // 不是重点，也不去管它
     if (ev.isTargetAccessibilityFocus() && isAccessibilityFocusedViewOrHost()) {
         ev.setTargetAccessibilityFocus(false);
     }
@@ -127,7 +127,7 @@ public boolean dispatchTouchEvent(MotionEvent ev) {
             TouchTarget newTouchTarget = null;
             boolean alreadyDispatchedToNewTouchTarget = false;
           
-            // 如果没取消也没拦截，进入方法体中
+            // 如果没取消也没拦截，进入执行语句中
             if (!canceled && !intercepted) {
               
             View childWithAccessibilityFocus = ev.isTargetAccessibilityFocus()
@@ -148,7 +148,7 @@ public boolean dispatchTouchEvent(MotionEvent ev) {
                 if (newTouchTarget == null && childrenCount != 0) {
                     final float x = ev.getX(actionIndex);
                     final float y = ev.getY(actionIndex);
-                    // 寻找可以接受触摸事件的子View
+                    // 寻找可以处理触摸事件的子View
                     // 通过buildTouchDispatchChildList()方法构建子View的List集合preorderedList
                     final ArrayList<View> preorderedList = buildTouchDispatchChildList();
                     final boolean customOrder = preorderedList == null
@@ -183,6 +183,7 @@ public boolean dispatchTouchEvent(MotionEvent ev) {
                         }
 
                         // 查找当前子View是否在mFirstTouchTarget中存储
+                        // mFirstTouchTarget是一种单链表结构
                         // 找不到则返回Null
                         newTouchTarget = getTouchTarget(child);
                         if (newTouchTarget != null) {
@@ -211,7 +212,7 @@ public boolean dispatchTouchEvent(MotionEvent ev) {
                             }
                             mLastTouchDownX = ev.getX();
                             mLastTouchDownY = ev.getY();
-                            // 将child赋值给newTouchTarget，将child加入mFirstTouchTarget中
+                            // 将child赋值给mFirstTouchTarget
                             newTouchTarget = addTouchTarget(child, idBitsToAssign);
                             // alreadyDispatchedToNewTouchTarget赋值为true，跳出循环
                             alreadyDispatchedToNewTouchTarget = true;
@@ -225,7 +226,7 @@ public boolean dispatchTouchEvent(MotionEvent ev) {
                     if (preorderedList != null) preorderedList.clear();
                 }
 
-                // 没有找到新的可以接收事件的子View，并且之前的mFirstTouchTarget不为空
+                // 没有找到可以接收事件的子View，并且之前的mFirstTouchTarget不为空
                 // newTouchTarget指向了最初的mFirstTouchTarget
                 if (newTouchTarget == null && mFirstTouchTarget != null) {
                     // Did not find a child to receive the event.
@@ -299,7 +300,7 @@ public boolean dispatchTouchEvent(MotionEvent ev) {
 ```
 ****
 
-#### 3. 事件拦截
+#### 事件拦截
 
 `intercepted` 用来标记`ViewGroup` 是否拦截事件，当事件为`MotionEvent.ACTION_DOWN` 或者`mFirstTouchTarget!=null` 时，`if` 判断成立，然后判断`disallowIntercept` 标志位，当`disallowIntercept` 为`false`时，调用`onInterceptTouchEvent()` 方法，并将返回值赋值给`intercepted` ，否则当`disallowIntercept` 为`true`时，则直接将`intercepted` 赋值为`false` 。
 
@@ -339,17 +340,21 @@ public boolean dispatchTouchEvent(MotionEvent ev) {
 
 ****
 
-#### 4. 事件分发
+#### 事件分发
 
-中间经过标记和`action`检查`cancel`，将结果赋值给变量`canceled`。`if (!canceled && !intercepted)` 语句表明，事件未被取消且`intercepted`为`false`(未拦截)，则会进入方法体中。
+中间经过标记和`action`检查`cancel`，将结果赋值给变量`canceled`。`if (!canceled && !intercepted)` 语句表明，事件未被取消且`intercepted`为`false`(未拦截)，则会进入执行语句中。
 
-首先判断`childrenCount`不为`0`，然后通过`buildTouchDispatchChildList()`方法拿到子`View`的`List`集合，接着倒序遍历所有子`View`，寻找可以接收点击事件的子`View`，为什么要倒序遍历，是因为`buildTouchDispatchChildList()`内部会调用`buildOrderedChildList()`方法,该方法会将子`View`根据`Z`轴排序，在同一`Z`平面上的子`View`则会根据绘制的先后顺序排序，触摸的时候我们当然会希望浮在最上层的`View`最先响应事件。
+首先判断`childrenCount`不为`0`，然后通过`buildTouchDispatchChildList()`方法拿到子元素的`List`集合，接着倒序遍历所有子元素，寻找可以接收点击事件的子元素，为什么要倒序遍历，是因为`buildTouchDispatchChildList()`内部会调用`buildOrderedChildList()`方法,该方法会将子元素根据`Z`轴排序，在同一`Z`平面上的子元素则会根据绘制的先后顺序排序，触摸的时候我们当然会希望浮在最上层的元素最先响应事件。
 
-对于每一个子`View`来说，需要`canViewReceivePointerEvents()`和`isTransformedTouchPointInView()`均返回`true`，说明子`View`可以接受触摸事件，否则直接`continue`进行下一次循环。`canViewReceivePointerEvents()`通过子`View`是否可见及是否在播放动画来判断子`View`是否可以接收事件，`isTransformedTouchPointInView()`判断触摸事件的坐标点是否在子`View`内，这样就获得了可以接收触摸事件的子`View`。
+对于每一个子元素来说，需要`canViewReceivePointerEvents()`和`isTransformedTouchPointInView()`均返回`true`，才说明该子元素可以处理触摸事件，否则直接`continue`进行下一次循环。
 
-接下来通过`getTouchTarget(child)`方法判断当前子`View`是否已经在`mFirstTouchTarget`中存储，如果`newTouchTarget`不为null，说明子`View`已经在`mFirstTouchTarget`中，执行`break`跳出循环。
+`canViewReceivePointerEvents()`通过是否可见及是否在播放动画来判断子元素是否可以接收事件，`isTransformedTouchPointInView()`判断触摸事件的坐标点是否在子元素内，这样我们就获得了可以处理触摸事件的子元素。
 
-如果`newTouchTarget`为`null`,说明`child`并没有在`mFirstTouchTarget`中保存，此时调用`dispatchTransformedTouchEvent()`方法，该方法十分重要，内部会递归调用`dispatchTouchEvent()`方法，如果子`View`是`ViewGroup`并且事件没有被拦截那么递归调用`dispatchTouchEvent()`;如果子`View`为`View`，那么调用其`onTouchEvent()`。`dispatchTransformedTouchEvent()` 方法是有返回值的，如果返回`true`，说明子View消耗了触摸事件，则在下面的代码中将`child`赋值为`newTouchTarget`，并将`child` 也加入`mFirstTouchEvent` 中，并跳出循环。
+接下来通过`getTouchTarget()`方法判断当前子元素是否已经赋值给`mFirstTouchTarget`，如果`newTouchTarget`不为`null`，说明子元素已经在`mFirstTouchTarget`中，执行`break`跳出循环。
+
+如果`newTouchTarget`为`null`,说明子元素并没有在`mFirstTouchTarget`中保存，此时调用`dispatchTransformedTouchEvent()`方法，该方法十分重要，在该方法内部：如果子元素是`ViewGroup`并且事件没有被拦截，那么递归调用`ViewGroup`的`dispatchTouchEvent()`;如果子元素是`View`，那么调用`View`的`dispatchTouchEvent()` ，最终会调用`View`的`onTouchEvent()`。
+
+`dispatchTransformedTouchEvent()` 方法是有返回值的，如果返回`true`，说明子元素消耗了触摸事件，则在下面的代码中将子元素赋值给`mFirstTouchEvent` ，并跳出循环，`mFirstTouchTarget`是否被赋值，将直接影响到`ViewGroup`对事件的拦截策略，如果`mFirstTouchTarget`为`null`，那么`ViewGroup`就会默认拦截接下来同一序列中的所有触摸事件，这一点在后面分析;如果返回`false`，`ViewGroup`就会把事件分发给下一个子元素(如果还有下一个子元素的话)。
 
 ```java
             // 如果没取消也没拦截，进入方法体中
@@ -436,7 +441,7 @@ public boolean dispatchTouchEvent(MotionEvent ev) {
                             }
                             mLastTouchDownX = ev.getX();
                             mLastTouchDownY = ev.getY();
-                            // 将child赋值给newTouchTarget，将child加入mFirstTouchTarget中
+                            // 将child赋值给mFirstTouchTarget
                             newTouchTarget = addTouchTarget(child, idBitsToAssign);
                             // alreadyDispatchedToNewTouchTarget赋值为true，跳出循环
                             alreadyDispatchedToNewTouchTarget = true;
@@ -450,7 +455,7 @@ public boolean dispatchTouchEvent(MotionEvent ev) {
                     if (preorderedList != null) preorderedList.clear();
                 }
 ```
-当没有任何子View处理触摸事件时，调用`dispatchTransformedTouchEvent()` 方法，注意此时第三个参数传入null，在方法内部就会调用`super.dispatchTouchEvent()` ,也就是View类的`dispatchTouchEvent()` 。
+当没有任何子`View`处理触摸事件时，调用`dispatchTransformedTouchEvent()` 方法，注意此时第三个参数传入`null`，在方法内部就会调用`super.dispatchTouchEvent()` ,也就是View类的`dispatchTouchEvent()` 。
 
 ```java
 if (mFirstTouchTarget == null) {
@@ -484,13 +489,13 @@ public boolean onInterceptTouchEvent(MotionEvent ev) {
 
 #### `dispatchTransformedTouchEvent()` 方法
 
-`dispatchTransformedTouchEvent()` 源码中发现多次对于child是否为null做判断，并且都做类似的操作：
+`dispatchTransformedTouchEvent()` 源码中发现多次对于传入的`child`是否为`null`做判断，并且都做类似的操作：
 
-当`child==null`时，调用`super.dispatchTouchEvent()`，也就是`View`类的`dispatchTouchEvent()`方法，因为`ViewGroup`的父类是`View`；
+当`child==null`时，调用`super.dispatchTouchEvent()`，也就是`View`类的`dispatchTouchEvent()`方法，因为`ViewGroup`的父类是`View`，最终会调用`View`的`onTouchEvent()`方法。
 
-当`child!=null`时，调用`child.dispatchTouchEvent()`，此时`child`可能是`View`，也可能是`ViewGroup`。
+当`child!=null`时，递归调用`child.dispatchTouchEvent()`，此时`child`可能是`View`，也可能是`ViewGroup`。
 
-从源码中可以看出`dispatchTransformedTouchEvent()` 方法的返回值，最终取决于`onTouchEvent()`方法，也就是说，`onTouchEvent()`是否被消费了事件，决定了`dispatchTransformedTouchEvent()` 方法的返回值，从而决定`mFirstTouchTarget`是否为`null`，因为如果`dispatchTransformedTouchEvent()` 方法的返回值为`false`，就无法执行`addTouchTarget()`方法，而`mFirstTouchTarget`在`Action_Down`事件到来时被重置为`null`了。
+从源码中可以看出`dispatchTransformedTouchEvent()` 方法的返回值，最终取决于`onTouchEvent()`方法，也就是说，`onTouchEvent()`是否消费了事件，决定了`dispatchTransformedTouchEvent()` 方法的返回值，从而决定`mFirstTouchTarget`是否为`null` 。因为如果`dispatchTransformedTouchEvent()` 方法的返回值为`false`，就无法执行`addTouchTarget()`方法，而`mFirstTouchTarget`就是在该方法中被赋值的。
 
 ```java
 private boolean dispatchTransformedTouchEvent(MotionEvent event, boolean cancel,
@@ -565,3 +570,24 @@ private boolean dispatchTransformedTouchEvent(MotionEvent event, boolean cancel,
         return handled;
     }
 ```
+****
+
+#### 重要结论
+
+1. `ViewGroup`一旦拦截`Action_Down`事件，那么当`Action_Move`、`Action_Up`事件到来时，将不再调用`ViewGroup`的`onInterceptTouchEvent()`方法，并且同一序列中的其他事件都会默认交给它处理。
+
+   分析：`ViewGroup`拦截`Action_Down`事件，会导致`intercepted`为`true`，从而导致`if (!canceled && !intercepted)`判断不成立，跳过执行语句，`mFirstTouchTarget`也为`null`。那么当`Action_Move`、`Action_Up`事件到来时，`if (actionMasked == MotionEvent.ACTION_DOWN  || mFirstTouchTarget != null)`判断语句不成立，会直接将`intercepted`赋值为`true`，即默认拦截后续的所有事件。
+
+2. 某个`View`一旦开始处理事件，如果它不消费`Action_Down`事件，那么同一事件序列中的其他事件也不会再交给它来处理，并且事件将重新交给它的父容器去处理。
+
+   分析：某个`View`不消费`Action_Down`事件，即`dispatchTransformedTouchEvent()`方法返回了`false`，导致`if (dispatchTransformedTouchEvent(ev, false, child, idBitsToAssign))`判断语句不成立，跳过执行语句，同样导致`mFirstTouchTarget`为`null` ，那么和第一条结论的分析一样，当`Action_Move`、`Action_Up`事件到来时，`if (actionMasked == MotionEvent.ACTION_DOWN  || mFirstTouchTarget != null)`判断语句不成立，同样会直接将`intercepted`赋值为`true` ，所以后续的事件都无法传递到这个`View`，而是交给`ViewGroup`处理。
+
+3. `ViewGroup`(绝大多数情况下)默认不拦截任何事件。`Android`源码中`ViewGroup`的`onInterceptTouchEvent()`方法默认返回false。
+
+4. `ViewGroup`没有重写父类`View`的`onTouchEvent()`方法。
+
+****
+
+- 到这里就分析完了，查了很多资料，中间也有可能有理解错误的地方，如果哪里错了，还请大家指正，谢谢。
+- [Github](https://github.com/Ro0kieY)
+
