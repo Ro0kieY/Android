@@ -2,10 +2,11 @@ package com.ro0kiey.threadpoolmanager.thread;
 
 import android.util.Log;
 
+import java.text.SimpleDateFormat;
+import java.util.Date;
 import java.util.HashMap;
-import java.util.Queue;
 import java.util.concurrent.BlockingQueue;
-import java.util.concurrent.LinkedBlockingDeque;
+import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.PriorityBlockingQueue;
 import java.util.concurrent.RejectedExecutionHandler;
 import java.util.concurrent.ThreadPoolExecutor;
@@ -23,7 +24,7 @@ public class ThreadPoolManager {
     private final static int DEFAULT_MAX_POOL_SIZE = 4;
     private final static long DEFAULT_KEEP_ALIVE_TIME = 0;
     private final static TimeUnit DEFAULT_TIME_UNIT = TimeUnit.SECONDS;
-    private static final String TAG = "ThreadPoolManager";
+    private static final String TAG = "Thread";
 
     private ThreadPoolExecutor mWorkThreadPool;
     private RejectedExecutionHandler mRejectedExecutionHandler;
@@ -38,7 +39,7 @@ public class ThreadPoolManager {
     private ThreadPoolManager(int corePoolSize, int maximumPoolSize, long keepAliveTime, TimeUnit unit, boolean isPriority){
         mWorkQueue = isPriority
                 ? new PriorityBlockingQueue<Runnable>(16)
-                : new LinkedBlockingDeque<Runnable>(16);
+                : new LinkedBlockingQueue<Runnable>(16);
         initRejectedExecutionHandler();
         mWorkThreadPool = new ThreadPoolExecutor(corePoolSize, maximumPoolSize, keepAliveTime, unit, mWorkQueue, mRejectedExecutionHandler);
     }
@@ -48,10 +49,20 @@ public class ThreadPoolManager {
             @Override
             public void rejectedExecution(Runnable r, ThreadPoolExecutor executor) {
                 //把被拒绝的任务重新放回队列
-                mWorkQueue.offer(r);
+                synchronized (mLock){
+                    mWorkQueue.offer(r);
+                }
                 Log.d(TAG, "拒绝执行任务，任务将被放回队列。");
             }
         };
+    }
+
+    public static ThreadPoolManager buildInstance(String threadPoolManagerName){
+        return buildInstance(DEFAULT_CORE_POOL_SIZE, DEFAULT_MAX_POOL_SIZE, DEFAULT_KEEP_ALIVE_TIME, DEFAULT_TIME_UNIT, false, threadPoolManagerName);
+    }
+
+    public static ThreadPoolManager buildInstance(int corePoolSize, int maximumPoolSize, long keepAliveTime, TimeUnit unit, boolean isPriority){
+        return buildInstance(corePoolSize, maximumPoolSize, keepAliveTime, unit, isPriority, null);
     }
 
     public static ThreadPoolManager buildInstance(int corePoolSize, int maximumPoolSize, long keepAliveTime, TimeUnit unit, boolean isPriority, String threadPoolManagerName){
@@ -81,5 +92,21 @@ public class ThreadPoolManager {
         }
         return threadPoolManager;
     }
-    
+
+    public void execute(Runnable r){
+        if (r != null){
+            mWorkThreadPool.execute(r);
+        }
+    }
+
+    public void cancel(Runnable r){
+        if (r != null){
+            synchronized (mLock){
+                if (mWorkQueue.contains(r)){
+                    mWorkQueue.remove(r);
+                }
+            }
+        }
+        mWorkThreadPool.remove(r);
+    }
 }
