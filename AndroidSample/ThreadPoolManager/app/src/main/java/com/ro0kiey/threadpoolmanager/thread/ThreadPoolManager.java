@@ -2,13 +2,16 @@ package com.ro0kiey.threadpoolmanager.thread;
 
 import android.util.Log;
 
-import java.text.SimpleDateFormat;
-import java.util.Date;
+import java.util.Collection;
 import java.util.HashMap;
+import java.util.Queue;
 import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.concurrent.Executors;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.PriorityBlockingQueue;
 import java.util.concurrent.RejectedExecutionHandler;
+import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 
@@ -26,9 +29,15 @@ public class ThreadPoolManager {
     private final static TimeUnit DEFAULT_TIME_UNIT = TimeUnit.SECONDS;
     private static final String TAG = "Thread";
 
+    public final static int HIGH_PRIORITY = 2;
+    public final static int LOW_PRIORITY = 1;
+
+    private static ScheduledExecutorService sScheduledExecutorService;
+    private static ScheduledRunnable sScheduledRunnable;
+
     private ThreadPoolExecutor mWorkThreadPool;
     private RejectedExecutionHandler mRejectedExecutionHandler;
-    private BlockingQueue<Runnable> mWorkQueue;
+    private Queue<Runnable> mWaitTaskQueue;
     private Object mLock = new Object();
     private String mName;
 
@@ -37,7 +46,13 @@ public class ThreadPoolManager {
     }
 
     private ThreadPoolManager(int corePoolSize, int maximumPoolSize, long keepAliveTime, TimeUnit unit, boolean isPriority){
-        mWorkQueue = isPriority
+        mWaitTaskQueue = new ConcurrentLinkedQueue<Runnable>();
+        if (sScheduledRunnable == null){
+            sScheduledRunnable = new ScheduledRunnable();
+            sScheduledExecutorService = Executors.newSingleThreadScheduledExecutor();
+            sScheduledExecutorService.scheduleAtFixedRate(sScheduledRunnable, 0, 5000, TimeUnit.MILLISECONDS);
+        }
+        BlockingQueue<Runnable> mWorkQueue = isPriority
                 ? new PriorityBlockingQueue<Runnable>(16)
                 : new LinkedBlockingQueue<Runnable>(16);
         initRejectedExecutionHandler();
@@ -50,7 +65,7 @@ public class ThreadPoolManager {
             public void rejectedExecution(Runnable r, ThreadPoolExecutor executor) {
                 //把被拒绝的任务重新放回队列
                 synchronized (mLock){
-                    mWorkQueue.offer(r);
+                    mWaitTaskQueue.offer(r);
                 }
                 Log.d(TAG, "拒绝执行任务，任务将被放回队列。");
             }
@@ -66,7 +81,7 @@ public class ThreadPoolManager {
     }
 
     public static ThreadPoolManager buildInstance(int corePoolSize, int maximumPoolSize, long keepAliveTime, TimeUnit unit, boolean isPriority, String threadPoolManagerName){
-        if (corePoolSize < 0 || maximumPoolSize <= 0 || keepAliveTime < 0 || corePoolSize > maximumPoolSize || "".equals(threadPoolManagerName.trim())){
+        if (corePoolSize < 0 || maximumPoolSize <= 0 || keepAliveTime < 0 || corePoolSize > maximumPoolSize){
             return null;
         } else {
             ThreadPoolManager threadPoolManager = new ThreadPoolManager(corePoolSize, maximumPoolSize, keepAliveTime, unit, isPriority);
@@ -102,11 +117,56 @@ public class ThreadPoolManager {
     public void cancel(Runnable r){
         if (r != null){
             synchronized (mLock){
-                if (mWorkQueue.contains(r)){
-                    mWorkQueue.remove(r);
+                if (mWaitTaskQueue.contains(r)){
+                    mWaitTaskQueue.remove(r);
                 }
             }
         }
         mWorkThreadPool.remove(r);
+    }
+
+    public void clean(){
+        if (!mWorkThreadPool.isShutdown()){
+            mWorkThreadPool.shutdownNow();
+        }
+        mRejectedExecutionHandler = null;
+        synchronized (mLock){
+            mWaitTaskQueue.clear();
+        }
+    }
+
+    public static void destroy(String threadPoolManagerName){
+        synchronized (sThreadPoolManagerHashMap){
+            ThreadPoolManager manager = sThreadPoolManagerHashMap.get(threadPoolManagerName);
+            if (manager != null){
+                manager.clean();
+                sThreadPoolManagerHashMap.remove(threadPoolManagerName);
+            }
+            Collection<ThreadPoolManager> values = sThreadPoolManagerHashMap.values();
+            for (ThreadPoolManager m : values){
+                Log.d(TAG, "HashMap中的线程池： " + m.mName);
+            }
+        }
+    }
+
+    private static class ScheduledRunnable implements Runnable {
+        @Override
+        public void run() {
+            synchronized (sThreadPoolManagerHashMap){
+                for (ThreadPoolManager manager : sThreadPoolManagerHashMap.values()){
+                    manager.executeWaitTask(manager);
+                }
+            }
+        }
+    }
+
+    private void executeWaitTask(ThreadPoolManager manager) {
+        if (!mWaitTaskQueue.isEmpty()){
+            Runnable r;
+            synchronized (mLock){
+                r = mWaitTaskQueue.poll();
+            }
+            manager.execute(r);
+        }
     }
 }
