@@ -1,4 +1,4 @@
-package com.ro0kiey.threadpoolmanager.thread;
+package com.ro0kiey.threadpoolmanager;
 
 import android.util.Log;
 
